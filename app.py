@@ -6,6 +6,8 @@ from datetime import datetime
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 
+from hosdata import data as hospital_data
+
 app = Flask(__name__)
 CORS(app)
 app.secret_key = "pulse_secret_key"
@@ -15,7 +17,7 @@ DATABASE = os.path.join(BASE_DIR, "pulse.db")
 USERS_FILE = os.path.join(BASE_DIR, "users.json")
 
 # -------------------------------
-# DB SETUP
+# DATABASE
 # -------------------------------
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -55,7 +57,7 @@ def init_db():
 init_db()
 
 # -------------------------------
-# AUTH
+# USERS
 # -------------------------------
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -64,10 +66,31 @@ def load_users():
                 "buyers": [{"username": "admin", "password": "123"}],
                 "sellers": [{"username": "seller1", "password": "123"}]
             }, f)
-
     with open(USERS_FILE) as f:
         return json.load(f)
 
+# -------------------------------
+# PAGES (⚠️ LOGIN FIX HERE)
+# -------------------------------
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/login_page")
+def login_page():
+    return render_template("login.html")
+
+@app.route("/dashboard")
+def dashboard():
+    return render_template("hospital-dashboard.html")
+
+@app.route("/seller-dashboard")
+def seller_dashboard():
+    return render_template("seller-dashboard.html")
+
+# -------------------------------
+# LOGIN
+# -------------------------------
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
@@ -81,26 +104,17 @@ def login():
 
     for u in users[group]:
         if u["username"] == username and u["password"] == password:
-            session[f"logged_{role}"] = username
-            return jsonify({"success": True, "redirect":
-                "/dashboard" if role == "hospital" else "/seller-dashboard"})
+            if role == "hospital":
+                session["logged_hospital"] = username
+                return jsonify({"success": True, "redirect": "/dashboard"})
+            else:
+                session["logged_seller"] = username
+                return jsonify({"success": True, "redirect": "/seller-dashboard"})
 
     return jsonify({"success": False}), 401
 
 # -------------------------------
-# PAGES
-# -------------------------------
-@app.route("/")
-def home(): return render_template("index.html")
-
-@app.route("/dashboard")
-def dashboard(): return render_template("hospital-dashboard.html")
-
-@app.route("/seller-dashboard")
-def seller_dashboard(): return render_template("seller-dashboard.html")
-
-# -------------------------------
-# HOSPITAL PROFILE API
+# HOSPITAL PROFILE
 # -------------------------------
 @app.route("/api/hospital/profile", methods=["GET", "POST"])
 def hospital_profile():
@@ -124,18 +138,15 @@ def hospital_profile():
             )
             db.commit()
             return jsonify({
-                "hospital": hospital,
                 "display_name": hospital.capitalize(),
                 "inventory": default_inventory
             })
 
         return jsonify({
-            "hospital": row["hospital"],
             "display_name": row["display_name"],
             "inventory": json.loads(row["inventory"])
         })
 
-    # UPDATE
     data = request.json
     db.execute(
         "UPDATE hospital_profiles SET display_name=?, inventory=? WHERE hospital=?",
@@ -145,7 +156,7 @@ def hospital_profile():
     return jsonify({"success": True})
 
 # -------------------------------
-# OTHER HOSPITALS (DUMMY → PERSISTENT)
+# OTHER HOSPITALS
 # -------------------------------
 @app.route("/api/hospitals/others")
 def other_hospitals():
@@ -193,7 +204,7 @@ def add_inventory():
         )
 
     db.commit()
-    return jsonify({"success": True, "message": "Inventory updated"})
+    return jsonify({"success": True})
 
 # -------------------------------
 # ORDERS
@@ -213,10 +224,15 @@ def hospital_request():
     if not seller:
         return jsonify({"status": "Failed"})
 
-    db.execute("UPDATE inventory SET qty=qty-? WHERE id=?",
-               (qty, seller["id"]))
+    db.execute(
+        "UPDATE inventory SET qty=qty-? WHERE id=?",
+        (qty, seller["id"])
+    )
 
-    tx_hash = hashlib.sha256(f"{hospital}{item}{datetime.now()}".encode()).hexdigest()
+    tx_hash = hashlib.sha256(
+        f"{hospital}{item}{datetime.now()}".encode()
+    ).hexdigest()
+
     db.execute(
         "INSERT INTO transactions VALUES (NULL,?,?,?,?,?)",
         (hospital, item, qty, seller["seller_name"], tx_hash)
