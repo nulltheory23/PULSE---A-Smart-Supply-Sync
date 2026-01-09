@@ -1,14 +1,14 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Run both functions when page loads
     loadDashboardData();
 });
 
 async function loadDashboardData() {
     try {
-        // 1. Fetch My Profile & 2. Fetch Market Supplies
+        // Run all three: Profile, Marketplace, and the Ledger (My Orders)
         await Promise.all([
             fetchMyProfile(),
-            fetchMarketplace()
+            fetchMarketplace(),
+            fetchMyOrders()
         ]);
     } catch (error) {
         console.error("Critical Dashboard Error:", error);
@@ -22,14 +22,12 @@ async function fetchMyProfile() {
         
         const data = await res.json();
         
-        // Update Header
         const userTag = document.getElementById("user-tag");
         const hospTitle = document.getElementById("hosp-title");
         
         if (userTag) userTag.innerText = data.display_name || "User";
         if (hospTitle) hospTitle.innerText = `${data.display_name || "Hospital"} Portal`;
 
-        // Update Inventory List
         const container = document.getElementById("my-stock");
         if (!container) return;
 
@@ -40,7 +38,6 @@ async function fetchMyProfile() {
 
         let html = "<ul style='list-style: none; padding: 0;'>";
         for (const [item, qty] of Object.entries(data.inventory)) {
-            const statusColor = qty < 10 ? "#ef4444" : "#00fff5";
             html += `<li style="padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
                         ${item}: <strong style="color: #00fff5;">${qty}</strong>
                      </li>`;
@@ -50,8 +47,6 @@ async function fetchMyProfile() {
 
     } catch (err) {
         console.error("Profile Error:", err);
-        const container = document.getElementById("my-stock");
-        if (container) container.innerHTML = "<p style='color: #ff4444;'>Error loading profile.</p>";
     }
 }
 
@@ -67,7 +62,7 @@ async function fetchMarketplace() {
         container.innerHTML = "";
 
         if (!items || items.length === 0) {
-            container.innerHTML = "<p style='text-align: center; color: #94a3b8;'>No supplies currently available from sellers.</p>";
+            container.innerHTML = "<p style='text-align: center; color: #94a3b8;'>No supplies available.</p>";
             return;
         }
 
@@ -76,11 +71,14 @@ async function fetchMarketplace() {
             card.className = "hospital-card";
             card.style.marginBottom = "15px";
             
+            // Format Supplier name for the UI
+            const supplierDisplay = i.seller_name.replace(/_/g, ' ').toUpperCase();
+
             card.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <div style="flex: 1;">
                         <h2 style="color: #fbbf24; margin: 0;">${i.item}</h2>
-                        <p style="margin: 5px 0; font-size: 0.85rem; color: #94a3b8;">Supplier: ${i.seller_name}</p>
+                        <p style="margin: 5px 0; font-size: 0.85rem; color: #94a3b8;">Supplier: ${supplierDisplay}</p>
                         <p style="margin: 0;">Available: <strong id="stock-${i.id}" style="color: #00fff5;">${i.qty}</strong></p>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
@@ -96,8 +94,6 @@ async function fetchMarketplace() {
         });
     } catch (err) {
         console.error("Marketplace Error:", err);
-        const container = document.getElementById("market-list");
-        if (container) container.innerHTML = "<p style='color: #ff4444;'>Error loading market data.</p>";
     }
 }
 
@@ -121,35 +117,47 @@ async function buyItem(itemName, id) {
         
         if (result.status === "Matched") {
             alert(`✅ Order Successful!\nTransaction Hash: ${result.hash.substring(0,20)}...`);
-            // Refresh data to show new stock levels
-            loadDashboardData();
+            loadDashboardData(); // Refresh all panels
         } else {
-            alert("❌ Order Failed: Insufficient stock or supplier unavailable.");
+            alert("❌ Order Failed: Stock unavailable.");
         }
     } catch (err) {
         console.error("Purchase Error:", err);
-        alert("Connection error. Could not process order.");
     }
 }
 
-
 async function fetchMyOrders() {
-    const res = await fetch("/ledger");
-    const allTx = await res.json();
-    const container = document.getElementById("my-orders");
-    
-    // Filter to only show orders for 'My Hospital' (or current logged user)
-    const myOrders = allTx.filter(tx => tx.hospital === document.getElementById("user-tag").innerText);
+    try {
+        const res = await fetch("/ledger");
+        const myOrders = await res.json(); // Backend already filtered for current user
+        const container = document.getElementById("my-orders");
+        
+        if (!container) return;
 
-    if (myOrders.length === 0) return;
+        if (myOrders.length === 0) {
+            container.innerHTML = "<p style='color: #64748b; font-size: 0.85rem;'>No recent orders.</p>";
+            return;
+        }
 
-    let html = "<ul>";
-    myOrders.forEach(tx => {
-        html += `<li style="font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid #334155;">
-            Ordered <strong>${tx.qty}x ${tx.item}</strong> from ${tx.seller}
-        </li>`;
-    });
-    html += "</ul>";
-    container.innerHTML = html;
+        let html = "<ul style='list-style: none; padding: 0;'>";
+        myOrders.forEach(tx => {
+            const cleanSeller = tx.seller.replace(/_/g, ' ').toUpperCase();
+            
+            html += `
+            <li style="font-size: 0.85rem; padding: 12px 0; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="color: #94a3b8;">Ordered:</span> <strong>${tx.qty}x ${tx.item}</strong><br>
+                    <small style="color: #64748b;">From: ${cleanSeller}</small>
+                </div>
+                <a href="/track/${tx.hash_id}" 
+                   style="color: #00fff5; text-decoration: none; border: 1px solid #00fff5; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem;">
+                   Track
+                </a>
+            </li>`;
+        });
+        html += "</ul>";
+        container.innerHTML = html;
+    } catch (err) {
+        console.error("Order Fetch Error:", err);
+    }
 }
-// Call this inside loadDashboardData()!
