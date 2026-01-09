@@ -22,31 +22,54 @@ async function fetchMyProfile() {
         
         const data = await res.json();
         
+        // 1. Update Header & Titles
         const userTag = document.getElementById("user-tag");
         const hospTitle = document.getElementById("hosp-title");
         
         if (userTag) userTag.innerText = data.display_name || "User";
         if (hospTitle) hospTitle.innerText = `${data.display_name || "Hospital"} Portal`;
 
+        // 2. Update Inventory List with Health Badges
         const container = document.getElementById("my-stock");
         if (!container) return;
 
         if (!data.inventory || Object.keys(data.inventory).length === 0) {
-            container.innerHTML = "<p>No local stock recorded.</p>";
+            container.innerHTML = "<p style='color: #64748b;'>No local stock recorded.</p>";
             return;
         }
 
         let html = "<ul style='list-style: none; padding: 0;'>";
         for (const [item, qty] of Object.entries(data.inventory)) {
-            html += `<li style="padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        ${item}: <strong style="color: #00fff5;">${qty}</strong>
-                     </li>`;
+            
+            // --- STOCK HEALTH LOGIC ---
+            let statusColor = "#00fff5"; // Default Cyan (Safe)
+            let statusText = "SAFE";
+            let glowEffect = "";
+
+            if (qty <= 5) {
+                statusColor = "#ef4444"; // Red (Critical)
+                statusText = "CRITICAL";
+                glowEffect = "box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);";
+            } else if (qty <= 15) {
+                statusColor = "#fbbf24"; // Yellow (Low)
+                statusText = "LOW";
+            }
+
+            html += `
+                <li style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; ${glowEffect} border-radius: 8px; margin-bottom: 5px;">
+                    <span style="font-weight: 500;">${item}: <strong style="color: ${statusColor}; font-size: 1.1rem;">${qty}</strong></span>
+                    <span style="font-size: 0.65rem; color: ${statusColor}; border: 1px solid ${statusColor}; padding: 2px 8px; border-radius: 12px; font-weight: bold; letter-spacing: 0.5px;">
+                        ${statusText}
+                    </span>
+                </li>`;
         }
         html += "</ul>";
         container.innerHTML = html;
 
     } catch (err) {
         console.error("Profile Error:", err);
+        const container = document.getElementById("my-stock");
+        if (container) container.innerHTML = "<p style='color: #ef4444;'>Error loading stock profile.</p>";
     }
 }
 

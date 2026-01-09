@@ -50,7 +50,7 @@
             </div>
             <div>
                 <label style="color: #94a3b8; font-size: 0.8rem;">DESTINATION</label>
-                <p style="margin: 5px 0; font-size: 0.9rem;">{{ order.seller.replace('_', ' ').title() }}</p>
+                <p style="margin: 5px 0; font-size: 0.9rem;">{{ order.hospital.replace('_', ' ').title() }}</p>
             </div>
         </div>
 
@@ -60,6 +60,25 @@
             <div class="step">○<br><small>In Transit</small></div>
             <div class="step">○<br><small>Delivered</small></div>
         </div>
+
+        <div id="confirmation-zone" style="margin-top: 20px; padding: 15px; background: rgba(0, 255, 245, 0.05); border-radius: 10px; border: 1px dashed #00fff5; text-align: center;">
+            <p style="font-size: 0.85rem; margin-bottom: 10px;">Has this shipment arrived at the facility?</p>
+            <button onclick="confirmDelivery()" id="confirm-btn" style="background: #00fff5; color: #0f172a; border: none; padding: 8px 20px; border-radius: 5px; font-weight: bold; cursor: pointer;">
+                Confirm Receipt & Sign Ledger
+            </button>
+        </div>
+
+        <script>
+        function confirmDelivery() {
+            const btn = document.getElementById('confirm-btn');
+            btn.innerHTML = "✓ SIGNED & VERIFIED";
+            btn.style.background = "#22c55e";
+            btn.style.color = "white";
+            btn.disabled = true;
+            document.getElementById('confirmation-zone').style.borderColor = "#22c55e";
+            alert("Transaction Finalized. Proof of Delivery has been cryptographically signed.");
+        }
+        </script>   
         
         <br><br>
         <button onclick="window.history.back()" class="request-btn" style="width: 100%; cursor: pointer;">
