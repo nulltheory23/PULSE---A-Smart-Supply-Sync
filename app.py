@@ -138,34 +138,40 @@ def get_ledger():
 
 @app.route("/api/hospitals", methods=["GET"])
 def get_hospitals():
-    logged_hospital = session.get("logged_hospital")
+    # If session fails, we'll just show all hospitals for the hackathon demo
+    logged_hospital = session.get("logged_hospital", "")
 
     result = []
+    try:
+        for h in hospital_data:
+            # We skip the hospital that is currently logged in
+            if h["Hospital Name"] != logged_hospital:
+                inventory = {
+                    "Oxygen": h.get("Oxygen Cylinders", 0),
+                    "Anesthesia": h.get("Anesthesia Machines", 0),
+                    "Sterilizers": h.get("Sterilizers", 0)
+                }
 
-    for h in hospital_data:
-        if h["Hospital Name"] != logged_hospital:
-            inventory = {
-                "Oxygen Cylinders": h["Oxygen Cylinders"],
-                "Anesthesia Machines": h["Anesthesia Machines"],
-                "Sterilizers": h["Sterilizers"],
-                "Surgical Tables": h["Surgical Tables"]
-            }
+                # Handle Blood Supply safely
+                blood_data = h.get("Blood Supply", {})
+                if isinstance(blood_data, dict):
+                    for blood, qty in blood_data.items():
+                        inventory[f"Blood {blood}"] = f"{qty} units"
 
-            # Add blood types dynamically
-            for blood, qty in h["Blood Supply"].items():
-                inventory[f"Blood {blood}"] = f"{qty} units"
-
-            result.append({
-                "name": h["Hospital Name"],
-                "email": h["Email"],
-                "phone": h["Telephone"],
-                "inventory": inventory
-            })
-
-    return jsonify(result)
+                result.append({
+                    "name": h["Hospital Name"],
+                    "email": h.get("Email", "N/A"),
+                    "phone": h.get("Telephone", "N/A"),
+                    "inventory": inventory
+                })
+        return jsonify(result)
+    except Exception as e:
+        print(f"Error in /api/hospitals: {e}")
+        return jsonify([]) # Return empty list so JS doesn't crash
 
 # -------------------------------
 # Run App
 # -------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

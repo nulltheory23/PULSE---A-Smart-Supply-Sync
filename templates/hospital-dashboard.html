@@ -5,28 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PULSE | Hospital Dashboard</title>
 
-<<<<<<< HEAD
-  <link rel="stylesheet" href="hospdas.css" />
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-  />
-</head>
-
-<body>
-  <header class="navbar">
-    <a href="/" class="home-icon">
-      <i class="fas fa-house"></i>
-    </a>
-    <h1>Hospital Dashboard</h1>
-  </header>
-
-  <main class="dashboard" id="dashboard">
-    <!-- Cards injected by JS -->
-  </main>
-=======
     <link rel="stylesheet" href="{{ url_for('static', filename='hospdas.css') }}" />
-
+    
     <link
         rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
@@ -34,7 +14,6 @@
 </head>
 
 <body>
-
     <header class="navbar">
         <a href="{{ url_for('home') }}" class="home-icon">
             <i class="fas fa-house"></i>
@@ -42,70 +21,11 @@
         <h1>Hospital Dashboard</h1>
     </header>
 
-    <main class="dashboard">
-
-        <div class="hospital-card">
-            <h2>Government General Hospital</h2>
-            <p><i class="fas fa-phone"></i> +91 98765 43210</p>
-            <p><i class="fas fa-envelope"></i> ggh@healthcare.in</p>
-
-            <div class="inventory">
-                <h3>Inventory Status</h3>
-                <ul>
-                    <li>O+ Blood: <strong>1200 ml</strong></li>
-                    <li>A+ Blood: <strong>800 ml</strong></li>
-                    <li>IV Fluids: <strong>60 units</strong></li>
-                    <li>Emergency Beds: <strong>5</strong></li>
-                </ul>
-            </div>
-
-            <button class="request-btn" onclick="raiseRequest('Government General Hospital')">
-                Request Supplies
-            </button>
+    <main class="dashboard" id="dashboard">
+        <div class="loading-msg" style="color: white; text-align: center; width: 100%; margin-top: 50px;">
+            <i class="fas fa-spinner fa-spin"></i> Fetching Live Hospital Data...
         </div>
-
-        <div class="hospital-card">
-            <h2>Nilgiris District Hospital</h2>
-            <p><i class="fas fa-phone"></i> +91 91234 56789</p>
-            <p><i class="fas fa-envelope"></i> ndh@healthcare.in</p>
-
-            <div class="inventory">
-                <h3>Inventory Status</h3>
-                <ul>
-                    <li>O+ Blood: <strong>500 ml</strong></li>
-                    <li>B+ Blood: <strong>650 ml</strong></li>
-                    <li>IV Fluids: <strong>35 units</strong></li>
-                    <li>Emergency Beds: <strong>2</strong></li>
-                </ul>
-            </div>
-
-            <button class="request-btn" onclick="raiseRequest('Nilgiris District Hospital')">
-                Request Supplies
-            </button>
-        </div>
-
-        <div class="hospital-card">
-            <h2>Private Medical Center</h2>
-            <p><i class="fas fa-phone"></i> +91 99887 66554</p>
-            <p><i class="fas fa-envelope"></i> pmc@healthcare.in</p>
-
-            <div class="inventory">
-                <h3>Inventory Status</h3>
-                <ul>
-                    <li>AB+ Blood: <strong>900 ml</strong></li>
-                    <li>A- Blood: <strong>400 ml</strong></li>
-                    <li>IV Fluids: <strong>80 units</strong></li>
-                    <li>Emergency Beds: <strong>7</strong></li>
-                </ul>
-            </div>
-
-            <button class="request-btn" onclick="raiseRequest('Private Medical Center')">
-                Request Supplies
-            </button>
-        </div>
-
     </main>
->>>>>>> 706ff6b18f3a4e1ed65ef14b316eaef05204f5c1
 
     <script src="{{ url_for('static', filename='hospdas.js') }}"></script>
 </body>
