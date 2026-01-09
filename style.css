@@ -1,0 +1,153 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f9b8e, #1cb5e0, #1488cc);
+  color: white;
+}
+
+/* NAVBAR */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 40px;
+  background: linear-gradient(90deg, #04364a, #176b87);
+  box-shadow: 0 4px 20px rgba(0, 255, 200, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.nav-left .nav-link {
+  margin-right: 20px;
+  text-decoration: none;
+  color: white;
+  font-size: 1rem;
+  transition: color 0.3s, text-shadow 0.3s;
+}
+
+.nav-left .nav-link:hover {
+  color: #00fff5;
+  text-shadow: 0 0 10px #00fff5;
+}
+
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+}
+
+.location-icon {
+  color: #00fff5;
+  text-shadow: 0 0 8px #00fff5;
+}
+
+/* LOGIN BUTTON */
+.login-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 25px;
+  background: linear-gradient(90deg, #00ffd5, #00c6ff);
+  color: #003333;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(0, 255, 213, 0.8);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.login-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 30px rgba(0, 255, 213, 1);
+}
+
+/* HERO */
+.hero {
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0 20px;
+}
+
+.pulse-text {
+  font-size: 6rem;
+  letter-spacing: 6px;
+  animation: pulseGlow 2s infinite;
+}
+
+.tagline {
+  font-size: 1.6rem;
+  margin-top: 10px;
+  color: #e6ffff;
+}
+
+.quote {
+  margin-top: 20px;
+  max-width: 750px;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: #eaffff;
+  opacity: 0.9;
+}
+
+/* PULSE EFFECT */
+@keyframes pulseGlow {
+  0% {
+    text-shadow: 0 0 10px #00ffd5;
+  }
+  50% {
+    text-shadow: 0 0 35px #00ffd5, 0 0 70px #00ffd5;
+  }
+  100% {
+    text-shadow: 0 0 10px #00ffd5;
+  }
+}
+
+/* ABOUT SECTION */
+.about {
+  padding: 80px 18%;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.about h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  color: #00ffd5;
+}
+
+.about p {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  margin-bottom: 16px;
+}
+.home-icon i {
+  font-size: 1.2rem;
+  color: #ffffff;
+  transition: color 0.3s, transform 0.3s;
+}
+
+.home-icon i:hover {
+  color: #00fff5;
+  transform: scale(1.1);
+}
+
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .pulse-text {
+    font-size: 4rem;
+  }
+  .about {
+    padding: 60px 10%;
+  }
+}
