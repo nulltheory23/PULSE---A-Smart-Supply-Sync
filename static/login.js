@@ -1,5 +1,6 @@
 let currentRole = 'hospital'; 
 
+// 1. Fixed the Toggle Logic
 function switchLogin(role) {
     currentRole = role;
     const slider = document.getElementById('toggleSlider');
@@ -16,15 +17,16 @@ function switchLogin(role) {
     }
 }
 
+// 2. Fixed the Login Logic for Render
 async function handleLogin(event) {
-    event.preventDefault(); 
+    event.preventDefault(); // Prevents page reload
 
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
 
     try {
-        // Pointing to your specific Backend IP
-        const response = await fetch("http://172.16.45.110:5000/login", {
+        // CHANGED: Use '/login' instead of the local IP address
+        const response = await fetch("/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
@@ -37,18 +39,30 @@ async function handleLogin(event) {
         const result = await response.json();
 
         if (result.success) {
-            // MAKE SURE THESE FILENAMES MATCH YOUR ACTUAL FILES
-            window.location.href = currentRole === 'hospital' ? "hospital-dashboard.html" : "seller-dashboard.html";
+            // CHANGED: Redirect to the Flask ROUTE, not the .html filename
+            // In your app.py, the route for the dashboard is "/dashboard"
+            window.location.href = "/dashboard";
         } else {
-            alert("Invalid Credentials!");
+            alert(result.message || "Invalid Credentials!");
         }
     } catch (error) {
         console.error("Error:", error);
-        alert("Server Unreachable. Check IP 172.16.45.110 and Port 5000.");
+        alert("Connection failed. The server might still be waking up on Render.");
     }
 }
 
+// 3. Simple Password Toggle
 function togglePassword() {
     const passField = document.getElementById('password');
-    passField.type = passField.type === 'password' ? 'text' : 'password';
+    const icon = document.querySelector('.password-field i');
+    
+    if (passField.type === 'password') {
+        passField.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        passField.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
 }
