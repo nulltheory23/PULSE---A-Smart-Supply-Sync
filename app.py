@@ -129,15 +129,18 @@ def get_hospitals():
         return jsonify(result)
     except Exception as e:
         return jsonify([])
+    
 
 @app.route("/hospital/request", methods=["POST"])
 def hospital_request():
     data = request.get_json()
     hospital = data.get('hospital')
     item = data.get('item', '').strip().capitalize()
-    qty = data.get('qty')
+    qty = int(data.get('qty')) # Ensure this is an integer
     
     db = get_db()
+    
+    # 1. Find the seller who has enough stock
     seller = db.execute(
         "SELECT * FROM inventory WHERE item = ? AND qty >= ? LIMIT 1",
         (item, qty)
@@ -145,34 +148,53 @@ def hospital_request():
 
     if seller:
         tx_hash = hashlib.sha256(f"{hospital}{item}{datetime.now()}".encode()).hexdigest()
+        
+        # 2. SUBTRACT the quantity from the seller's inventory
+        db.execute(
+            "UPDATE inventory SET qty = qty - ? WHERE id = ?",
+            (qty, seller['id'])
+        )
+        
+        # 3. Record the transaction
         db.execute(
             "INSERT INTO transactions (hospital, item, qty, seller, hash_id) VALUES (?, ?, ?, ?, ?)",
             (hospital, item, qty, seller['seller_name'], tx_hash)
         )
+        
         db.commit()
         db.close()
         return jsonify({"status": "Matched", "match": seller['seller_name'], "hash": tx_hash})
     
     db.close()
-    return jsonify({"status": "Pending"})
+    return jsonify({"status": "Pending", "message": "Insufficient stock or no match found."})
+
+
 
 @app.route("/api/add-inventory", methods=["POST"])
 def add_inventory():
     data = request.json
     item = data.get('item', '').strip().capitalize()
-    qty = data.get('qty')
+    
+    try:
+        qty = int(data.get('qty')) # 🔹 Ensure it's a number
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "message": "Invalid quantity"}), 400
+
     seller_name = session.get("logged_seller", "Seller_1")
 
     db = get_db()
-    existing = db.execute("SELECT * FROM inventory WHERE item = ?", (item,)).fetchone()
+    existing = db.execute("SELECT * FROM inventory WHERE item = ? AND seller_name = ?", (item, seller_name)).fetchone()
+    
     if existing:
-        db.execute("UPDATE inventory SET qty = qty + ? WHERE item = ?", (qty, item))
+        db.execute("UPDATE inventory SET qty = qty + ? WHERE item = ? AND seller_name = ?", (qty, item, seller_name))
     else:
         db.execute("INSERT INTO inventory (seller_name, item, qty) VALUES (?, ?, ?)", 
                    (seller_name, item, qty))
+    
     db.commit()
     db.close()
     return jsonify({"success": True, "message": "Inventory updated!"})
+
 
 @app.route("/ledger")
 def get_ledger():
