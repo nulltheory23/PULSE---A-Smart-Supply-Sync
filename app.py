@@ -6,16 +6,19 @@ from datetime import datetime
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 
+# 🔹 IMPORT hospital resource data
 from hosdata import data as hospital_data
 
 app = Flask(__name__)
 CORS(app)
 
+# 🔹 REQUIRED for session handling
 app.secret_key = "pulse_secret_key"
 
+# Use absolute paths for Render
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE = os.path.join(BASE_DIR, "users.json")
-DATABASE = os.path.join(BASE_DIR, "pulse.db")
+DATABASE = os.path.join(BASE_DIR, 'pulse.db')
 
 # -------------------------------
 # 1. Database & User Setup
@@ -33,6 +36,14 @@ def init_db():
 init_db()
 
 def load_users():
+    if not os.path.exists(USERS_FILE):
+        default_data = {
+            "buyers": [{"username": "admin", "password": "123"}], 
+            "sellers": [{"username": "seller1", "password": "123"}]
+        }
+        with open(USERS_FILE, "w") as f:
+            json.dump(default_data, f)
+        return default_data
     with open(USERS_FILE, "r") as f:
         return json.load(f)
 
@@ -41,7 +52,6 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-# 🔹 helper (ONLY for fixing comparison bug)
 def normalize(text):
     return text.lower().replace(",", "").replace(".", "").replace(" ", "_")
 
@@ -56,12 +66,16 @@ def home():
 def dashboard():
     return render_template("hospital-dashboard.html")
 
+@app.route("/seller-dashboard")
+def seller_dashboard():
+    return render_template("seller-dashboard.html")
+
 @app.route("/login_page")
 def show_login():
     return render_template("login.html")
 
 # -------------------------------
-# 3. LOGIN (unchanged logic)
+# 3. API Routes
 # -------------------------------
 @app.route("/login", methods=["POST"])
 def login():
@@ -69,77 +83,58 @@ def login():
     role = data.get("role")
     username = data.get("username")
     password = data.get("password")
-
+    
     users_data = load_users()
-    users = users_data.get("buyers", [])
+    category = "buyers" if role == "hospital" else "sellers"
+    users = users_data.get(category, [])
 
     for u in users:
         if u["username"] == username and u["password"] == password:
-<<<<<<< HEAD
-            # Dynamic Redirect based on role
             target_page = "/dashboard" if role == "hospital" else "/seller-dashboard"
             
             if role == "hospital":
-                session["logged_hospital"] = u.get("display_name", username)
+                session["logged_hospital"] = username
             else:
-                session["logged_seller"] = u.get("username", username)
+                session["logged_seller"] = username
             
-            return jsonify({
-                "success": True, 
-                "role": role, 
-                "redirect": target_page  # <--- THIS IS KEY
-=======
-            # 🔴 BEFORE: display_name comparison caused bug
-            # ✅ NOW: store username only
-            session["logged_hospital"] = username
-            return jsonify({"success": True, "redirect": "/dashboard"})
+            return jsonify({"success": True, "role": role, "redirect": target_page})
 
-    return jsonify({"success": False}), 401
+    return jsonify({"success": False, "message": "Invalid credentials"}), 401
 
-# -------------------------------
-# 4. DASHBOARD DATA (ONLY BUG FIX HERE)
-# -------------------------------
-@app.route("/api/hospitals")
+@app.route("/api/hospitals", methods=["GET"])
 def get_hospitals():
-    logged_username = session.get("logged_hospital")
-
+    logged_username = session.get("logged_hospital", "")
     result = []
+    
+    try:
+        for h in hospital_data:
+            hospital_username = normalize(h["Hospital Name"])
+            # Skip the hospital currently logged in
+            if hospital_username != logged_username:
+                inventory = {
+                    "Oxygen": h.get("Oxygen Cylinders", 0),
+                    "Anesthesia": h.get("Anesthesia Machines", 0),
+                    "Sterilizers": h.get("Sterilizers", 0)
+                }
+                blood_data = h.get("Blood Supply", {})
+                for blood, qty in blood_data.items():
+                    inventory[f"Blood {blood}"] = f"{qty} units"
 
-    for h in hospital_data:
-        # 🔹 normalize hospital name ONLY for comparison
-        hospital_username = normalize(h["Hospital Name"])
+                result.append({
+                    "name": h["Hospital Name"],
+                    "email": h.get("Email", "N/A"),
+                    "phone": h.get("Telephone", "N/A"),
+                    "inventory": inventory
+                })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify([])
 
-        # 🔹 THIS LINE IS THE FIX
-        if hospital_username != logged_username:
-            inventory = {
-                "Oxygen Cylinders": h["Oxygen Cylinders"],
-                "Anesthesia Machines": h["Anesthesia Machines"],
-                "Sterilizers": h["Sterilizers"],
-                "Surgical Tables": h["Surgical Tables"]
-            }
-
-            # 🔹 inventory logic UNCHANGED
-            for blood, qty in h["Blood Supply"].items():
-                inventory[f"Blood {blood}"] = f"{qty} units"
-
-            result.append({
-                "name": h["Hospital Name"],
-                "email": h["Email"],
-                "phone": h["Telephone"],
-                "inventory": inventory
->>>>>>> 9d1231c47cb4851813c9eabc5bd3cb1186ec469a
-            })
-
-    return jsonify(result)
-
-# -------------------------------
-# 5. EXISTING REQUEST LOGIC (UNCHANGED)
-# -------------------------------
 @app.route("/hospital/request", methods=["POST"])
 def hospital_request():
     data = request.get_json()
     hospital = data.get('hospital')
-    item = data.get('item').strip().capitalize()
+    item = data.get('item', '').strip().capitalize()
     qty = data.get('qty')
     
     db = get_db()
@@ -157,13 +152,28 @@ def hospital_request():
         db.commit()
         db.close()
         return jsonify({"status": "Matched", "match": seller['seller_name'], "hash": tx_hash})
-
+    
     db.close()
     return jsonify({"status": "Pending"})
 
-# -------------------------------
-# 6. LEDGER (UNCHANGED)
-# -------------------------------
+@app.route("/api/add-inventory", methods=["POST"])
+def add_inventory():
+    data = request.json
+    item = data.get('item', '').strip().capitalize()
+    qty = data.get('qty')
+    seller_name = session.get("logged_seller", "Seller_1")
+
+    db = get_db()
+    existing = db.execute("SELECT * FROM inventory WHERE item = ?", (item,)).fetchone()
+    if existing:
+        db.execute("UPDATE inventory SET qty = qty + ? WHERE item = ?", (qty, item))
+    else:
+        db.execute("INSERT INTO inventory (seller_name, item, qty) VALUES (?, ?, ?)", 
+                   (seller_name, item, qty))
+    db.commit()
+    db.close()
+    return jsonify({"success": True, "message": "Inventory updated!"})
+
 @app.route("/ledger")
 def get_ledger():
     db = get_db()
@@ -172,74 +182,8 @@ def get_ledger():
     return jsonify([dict(row) for row in txs])
 
 # -------------------------------
-<<<<<<< HEAD
-# 4. NEW API: Hospital Dashboard Data
-# -------------------------------
-
-@app.route("/api/hospitals", methods=["GET"])
-def get_hospitals():
-    # If session fails, we'll just show all hospitals for the hackathon demo
-    logged_hospital = session.get("logged_hospital", "")
-
-    result = []
-    try:
-        for h in hospital_data:
-            # We skip the hospital that is currently logged in
-            if h["Hospital Name"] != logged_hospital:
-                inventory = {
-                    "Oxygen": h.get("Oxygen Cylinders", 0),
-                    "Anesthesia": h.get("Anesthesia Machines", 0),
-                    "Sterilizers": h.get("Sterilizers", 0)
-                }
-
-                # Handle Blood Supply safely
-                blood_data = h.get("Blood Supply", {})
-                if isinstance(blood_data, dict):
-                    for blood, qty in blood_data.items():
-                        inventory[f"Blood {blood}"] = f"{qty} units"
-
-                result.append({
-                    "name": h["Hospital Name"],
-                    "email": h.get("Email", "N/A"),
-                    "phone": h.get("Telephone", "N/A"),
-                    "inventory": inventory
-                })
-        return jsonify(result)
-    except Exception as e:
-        print(f"Error in /api/hospitals: {e}")
-        return jsonify([]) # Return empty list so JS doesn't crash
-    
-
-# -------------------------------
-# 5. NEW API: Seller Actions
-# -------------------------------
-
-@app.route("/api/add-inventory", methods=["POST"])
-def add_inventory():
-    data = request.json
-    item = data.get('item').strip().capitalize()
-    qty = data.get('qty')
-    seller_name = "Seller_1" # In a real app, get this from session
-
-    db = get_db()
-    # Check if item exists, if so update, else insert
-    existing = db.execute("SELECT * FROM inventory WHERE item = ?", (item,)).fetchone()
-    
-    if existing:
-        db.execute("UPDATE inventory SET qty = qty + ? WHERE item = ?", (qty, item))
-    else:
-        db.execute("INSERT INTO inventory (seller_name, item, qty) VALUES (?, ?, ?)", 
-                   (seller_name, item, qty))
-    
-    db.commit()
-    db.close()
-    return jsonify({"success": True, "message": "Inventory updated!"})
-
-# -------------------------------
 # Run App
-=======
-# RUN
->>>>>>> 9d1231c47cb4851813c9eabc5bd3cb1186ec469a
 # -------------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
