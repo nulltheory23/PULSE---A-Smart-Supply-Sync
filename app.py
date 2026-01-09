@@ -75,28 +75,13 @@ def login():
 
     for u in users:
         if u["username"] == username and u["password"] == password:
-<<<<<<< HEAD
             # 🔴 BEFORE: display_name comparison caused bug
             # ✅ NOW: store username only
             session["logged_hospital"] = username
             return jsonify({"success": True, "redirect": "/dashboard"})
-=======
-            # Dynamic Redirect based on role
-            target_page = "/dashboard" if role == "hospital" else "/seller-dashboard"
-            
-            if role == "hospital":
-                session["logged_hospital"] = u.get("display_name", username)
-            
-            return jsonify({
-                "success": True, 
-                "role": role, 
-                "redirect": target_page  # <--- THIS IS KEY
-            })
->>>>>>> 4cf88a237e7e2a6e5674831981a3a4d24a3f870d
 
     return jsonify({"success": False}), 401
 
-<<<<<<< HEAD
 # -------------------------------
 # 4. DASHBOARD DATA (ONLY BUG FIX HERE)
 # -------------------------------
@@ -135,8 +120,6 @@ def get_hospitals():
 # -------------------------------
 # 5. EXISTING REQUEST LOGIC (UNCHANGED)
 # -------------------------------
-=======
->>>>>>> 4cf88a237e7e2a6e5674831981a3a4d24a3f870d
 @app.route("/hospital/request", methods=["POST"])
 def hospital_request():
     data = request.get_json()
@@ -163,19 +146,10 @@ def hospital_request():
     db.close()
     return jsonify({"status": "Pending"})
 
-<<<<<<< HEAD
 # -------------------------------
 # 6. LEDGER (UNCHANGED)
 # -------------------------------
 @app.route("/ledger")
-=======
-@app.route("/seller-dashboard")
-def seller_dashboard():
-    return render_template("seller-dashboard.html")
-
-
-@app.route("/ledger", methods=["GET"])
->>>>>>> 4cf88a237e7e2a6e5674831981a3a4d24a3f870d
 def get_ledger():
     db = get_db()
     txs = db.execute("SELECT * FROM transactions ORDER BY id DESC").fetchall()
@@ -183,74 +157,7 @@ def get_ledger():
     return jsonify([dict(row) for row in txs])
 
 # -------------------------------
-<<<<<<< HEAD
 # RUN
-=======
-# 4. NEW API: Hospital Dashboard Data
-# -------------------------------
-
-@app.route("/api/hospitals", methods=["GET"])
-def get_hospitals():
-    # If session fails, we'll just show all hospitals for the hackathon demo
-    logged_hospital = session.get("logged_hospital", "")
-
-    result = []
-    try:
-        for h in hospital_data:
-            # We skip the hospital that is currently logged in
-            if h["Hospital Name"] != logged_hospital:
-                inventory = {
-                    "Oxygen": h.get("Oxygen Cylinders", 0),
-                    "Anesthesia": h.get("Anesthesia Machines", 0),
-                    "Sterilizers": h.get("Sterilizers", 0)
-                }
-
-                # Handle Blood Supply safely
-                blood_data = h.get("Blood Supply", {})
-                if isinstance(blood_data, dict):
-                    for blood, qty in blood_data.items():
-                        inventory[f"Blood {blood}"] = f"{qty} units"
-
-                result.append({
-                    "name": h["Hospital Name"],
-                    "email": h.get("Email", "N/A"),
-                    "phone": h.get("Telephone", "N/A"),
-                    "inventory": inventory
-                })
-        return jsonify(result)
-    except Exception as e:
-        print(f"Error in /api/hospitals: {e}")
-        return jsonify([]) # Return empty list so JS doesn't crash
-    
-
-# -------------------------------
-# 5. NEW API: Seller Actions
-# -------------------------------
-
-@app.route("/api/add-inventory", methods=["POST"])
-def add_inventory():
-    data = request.json
-    item = data.get('item')
-    qty = data.get('qty')
-    seller_name = "Seller_1" # In a real app, get this from session
-
-    db = get_db()
-    # Check if item exists, if so update, else insert
-    existing = db.execute("SELECT * FROM inventory WHERE item = ?", (item,)).fetchone()
-    
-    if existing:
-        db.execute("UPDATE inventory SET qty = qty + ? WHERE item = ?", (qty, item))
-    else:
-        db.execute("INSERT INTO inventory (seller_name, item, qty) VALUES (?, ?, ?)", 
-                   (seller_name, item, qty))
-    
-    db.commit()
-    db.close()
-    return jsonify({"success": True, "message": "Inventory updated!"})
-
-# -------------------------------
-# Run App
->>>>>>> 4cf88a237e7e2a6e5674831981a3a4d24a3f870d
 # -------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
