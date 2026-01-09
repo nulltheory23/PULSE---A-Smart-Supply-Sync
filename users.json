@@ -1,0 +1,30 @@
+{
+    "buyers": [
+        {
+            "username": "govt_medical_college_nilgiris",
+            "display_name": "Govt Medical College Hospital, Nilgiris",
+            "password": "med123"
+        },
+        {
+            "username": "government_lawley_hospital",
+            "display_name": "Government Lawley Hospital",
+            "password": "law456"
+        },
+        {
+            "username": "kotagiri_government_hospital",
+            "display_name": "Kotagiri Government Hospital",
+            "password": "kota789"
+        },
+        {
+            "username": "gudalur_govt_hospital",
+            "display_name": "Gudalur Govt. Hospital",
+            "password": "guda321"
+        },
+        {
+            "username": "panthalur_medical_hospital",
+            "display_name": "Panthalur Medical Hospital, The Nilgiris",
+            "password": "pan654"
+        }
+    ],
+    "sellers": []
+}
