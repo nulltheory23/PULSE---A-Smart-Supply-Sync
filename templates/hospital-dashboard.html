@@ -1,18 +1,41 @@
-<section class="hospital-card">
-  <h2>My Profile</h2>
-  <input id="hospital-name">
-  <button onclick="saveProfile()">Save</button>
-  <pre id="my-inventory"></pre>
-</section>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PULSE | Hospital Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='hospdas.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <header class="navbar">
+        <a href="{{ url_for('home') }}" class="home-icon"><i class="fas fa-house"></i></a>
+        <h1 id="hosp-title">Hospital Dashboard</h1>
+        <div style="margin-left: auto; padding-right: 20px;">
+            <i class="fas fa-user-circle"></i> <span id="user-tag">Loading...</span>
+        </div>
+    </header>
 
-<section class="hospital-card">
-  <h2>Other Hospitals</h2>
-  <div id="other-hospitals"></div>
-</section>
+    <main class="dashboard">
+        <section class="hospital-card" style="border: 2px solid #00fff5;">
+            <h2><i class="fas fa-warehouse"></i> My Facility Stock</h2>
+            <div id="my-stock" class="inventory">
+                <p>Loading your profile...</p>
+            </div>
+        </section>
 
-<section class="hospital-card">
-  <h2>Seller Inventory</h2>
-  <div id="supplier-list"></div>
-</section>
+        <section class="hospital-card" style="margin-top: 30px; border-top: 2px solid #fbbf24;">
+            <h2><i class="fas fa-history"></i> My Order History</h2>
+            <div id="my-orders" class="inventory">
+                <p>No orders placed yet.</p>
+            </div>
+        </section>
 
-<script src="{{ url_for('static', filename='hospdas.js') }}"></script>
+        <h2 style="margin-top: 30px;"><i class="fas fa-shopping-cart"></i> Supplier Marketplace</h2>
+        <div id="market-list" style="width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+            </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='hospdas.js') }}"></script>
+</body>
+</html>

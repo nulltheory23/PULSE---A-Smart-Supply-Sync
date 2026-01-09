@@ -6,18 +6,20 @@ from datetime import datetime
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 
+# Import hospital data from your local file
 from hosdata import data as hospital_data
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = "pulse_secret_key"
 
+# Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "pulse.db")
 USERS_FILE = os.path.join(BASE_DIR, "users.json")
 
 # -------------------------------
-# DATABASE
+# DATABASE CORE
 # -------------------------------
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -25,9 +27,11 @@ def get_db():
     return conn
 
 def init_db():
+    """Initializes the database and creates tables if they don't exist."""
     db = get_db()
     c = db.cursor()
 
+    # 1. Table for Seller Inventory
     c.execute("""CREATE TABLE IF NOT EXISTS inventory (
         id INTEGER PRIMARY KEY,
         seller_name TEXT,
@@ -35,6 +39,7 @@ def init_db():
         qty INTEGER
     )""")
 
+    # 2. Table for Order Records (The Ledger)
     c.execute("""CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY,
         hospital TEXT,
@@ -44,6 +49,7 @@ def init_db():
         hash_id TEXT
     )""")
 
+    # 3. Table for Hospital's Own Stock Profiles
     c.execute("""CREATE TABLE IF NOT EXISTS hospital_profiles (
         id INTEGER PRIMARY KEY,
         hospital TEXT UNIQUE,
@@ -53,11 +59,35 @@ def init_db():
 
     db.commit()
     db.close()
+    
+    # Run the seed function to add starter data
+    seed_data()
 
+def seed_data():
+    """Adds starter data so the marketplace isn't empty on the first run."""
+    db = get_db()
+    count = db.execute("SELECT COUNT(*) FROM inventory").fetchone()[0]
+    
+    if count == 0:
+        starter_items = [
+            ("Global_Supplier", "Oxygen", 100),
+            ("MedTech_Source", "Ventilators", 15),
+            ("QuickCare_Supplies", "Blood_O+", 40),
+            ("BioShield", "Surgical_Masks", 500)
+        ]
+        db.executemany(
+            "INSERT INTO inventory (seller_name, item, qty) VALUES (?, ?, ?)", 
+            starter_items
+        )
+        db.commit()
+        print("✅ Database seeded with starter supplies!")
+    db.close()
+
+# Run initialization
 init_db()
 
 # -------------------------------
-# USERS
+# USER MANAGEMENT
 # -------------------------------
 def load_users():
     if not os.path.exists(USERS_FILE):
@@ -70,7 +100,7 @@ def load_users():
         return json.load(f)
 
 # -------------------------------
-# PAGES (⚠️ LOGIN FIX HERE)
+# PAGE ROUTES
 # -------------------------------
 @app.route("/")
 def home():
@@ -89,17 +119,13 @@ def seller_dashboard():
     return render_template("seller-dashboard.html")
 
 # -------------------------------
-# LOGIN
+# AUTHENTICATION API
 # -------------------------------
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
     users = load_users()
-
-    role = data["role"]
-    username = data["username"]
-    password = data["password"]
-
+    role, username, password = data["role"], data["username"], data["password"]
     group = "buyers" if role == "hospital" else "sellers"
 
     for u in users[group]:
@@ -114,7 +140,7 @@ def login():
     return jsonify({"success": False}), 401
 
 # -------------------------------
-# HOSPITAL PROFILE
+# HOSPITAL API
 # -------------------------------
 @app.route("/api/hospital/profile", methods=["GET", "POST"])
 def hospital_profile():
@@ -123,56 +149,32 @@ def hospital_profile():
         return jsonify({"error": "Not logged in"}), 401
 
     db = get_db()
-
     if request.method == "GET":
-        row = db.execute(
-            "SELECT * FROM hospital_profiles WHERE hospital=?",
-            (hospital,)
-        ).fetchone()
-
+        row = db.execute("SELECT * FROM hospital_profiles WHERE hospital=?", (hospital,)).fetchone()
         if not row:
-            default_inventory = {"Oxygen": 10, "Masks": 50}
-            db.execute(
-                "INSERT INTO hospital_profiles VALUES (NULL, ?, ?, ?)",
-                (hospital, hospital.capitalize(), json.dumps(default_inventory))
-            )
+            default_inv = {"Oxygen": 10, "Masks": 50}
+            db.execute("INSERT INTO hospital_profiles VALUES (NULL, ?, ?, ?)",
+                       (hospital, hospital.capitalize(), json.dumps(default_inv)))
             db.commit()
-            return jsonify({
-                "display_name": hospital.capitalize(),
-                "inventory": default_inventory
-            })
+            return jsonify({"display_name": hospital.capitalize(), "inventory": default_inv})
 
-        return jsonify({
-            "display_name": row["display_name"],
-            "inventory": json.loads(row["inventory"])
-        })
+        return jsonify({"display_name": row["display_name"], "inventory": json.loads(row["inventory"])})
 
     data = request.json
-    db.execute(
-        "UPDATE hospital_profiles SET display_name=?, inventory=? WHERE hospital=?",
-        (data["display_name"], json.dumps(data["inventory"]), hospital)
-    )
+    db.execute("UPDATE hospital_profiles SET display_name=?, inventory=? WHERE hospital=?",
+               (data["display_name"], json.dumps(data["inventory"]), hospital))
     db.commit()
     return jsonify({"success": True})
 
-# -------------------------------
-# OTHER HOSPITALS
-# -------------------------------
 @app.route("/api/hospitals/others")
 def other_hospitals():
     db = get_db()
-    rows = db.execute(
-        "SELECT display_name, inventory FROM hospital_profiles"
-    ).fetchall()
+    rows = db.execute("SELECT display_name, inventory FROM hospital_profiles").fetchall()
     db.close()
-
-    return jsonify([
-        {"name": r["display_name"], "inventory": json.loads(r["inventory"])}
-        for r in rows
-    ])
+    return jsonify([{"name": r["display_name"], "inventory": json.loads(r["inventory"])} for r in rows])
 
 # -------------------------------
-# SELLERS
+# SELLER API
 # -------------------------------
 @app.route("/api/sellers")
 def sellers():
@@ -185,29 +187,18 @@ def sellers():
 def add_inventory():
     seller = session.get("logged_seller")
     data = request.json
-
     db = get_db()
-    existing = db.execute(
-        "SELECT * FROM inventory WHERE seller_name=? AND item=?",
-        (seller, data["item"])
-    ).fetchone()
-
+    existing = db.execute("SELECT * FROM inventory WHERE seller_name=? AND item=?", 
+                          (seller, data["item"])).fetchone()
     if existing:
-        db.execute(
-            "UPDATE inventory SET qty=qty+? WHERE id=?",
-            (data["qty"], existing["id"])
-        )
+        db.execute("UPDATE inventory SET qty=qty+? WHERE id=?", (data["qty"], existing["id"]))
     else:
-        db.execute(
-            "INSERT INTO inventory VALUES (NULL,?,?,?)",
-            (seller, data["item"], data["qty"])
-        )
-
+        db.execute("INSERT INTO inventory VALUES (NULL,?,?,?)", (seller, data["item"], data["qty"]))
     db.commit()
     return jsonify({"success": True})
 
 # -------------------------------
-# ORDERS
+# ORDER & LEDGER SYSTEM
 # -------------------------------
 @app.route("/hospital/request", methods=["POST"])
 def hospital_request():
@@ -216,29 +207,30 @@ def hospital_request():
     item, qty = data["item"], int(data["qty"])
 
     db = get_db()
-    seller = db.execute(
-        "SELECT * FROM inventory WHERE item=? AND qty>=?",
-        (item, qty)
-    ).fetchone()
+    seller = db.execute("SELECT * FROM inventory WHERE item=? AND qty>=?", (item, qty)).fetchone()
 
     if not seller:
-        return jsonify({"status": "Failed"})
+        db.close()
+        return jsonify({"status": "Failed", "message": "Not enough stock"})
 
-    db.execute(
-        "UPDATE inventory SET qty=qty-? WHERE id=?",
-        (qty, seller["id"])
-    )
+    # 1. Update Inventories (Seller down, Hospital up)
+    db.execute("UPDATE inventory SET qty=qty-? WHERE id=?", (qty, seller["id"]))
+    
+    profile = db.execute("SELECT inventory FROM hospital_profiles WHERE hospital=?", (hospital,)).fetchone()
+    if profile:
+        inv = json.loads(profile["inventory"])
+        inv[item] = inv.get(item, 0) + qty
+        db.execute("UPDATE hospital_profiles SET inventory=? WHERE hospital=?", (json.dumps(inv), hospital))
 
-    tx_hash = hashlib.sha256(
-        f"{hospital}{item}{datetime.now()}".encode()
-    ).hexdigest()
+    # 2. Blockchain-style Hashing
+    tx_hash = hashlib.sha256(f"{hospital}{item}{datetime.now()}".encode()).hexdigest()
 
-    db.execute(
-        "INSERT INTO transactions VALUES (NULL,?,?,?,?,?)",
-        (hospital, item, qty, seller["seller_name"], tx_hash)
-    )
+    # 3. Save to Ledger
+    db.execute("INSERT INTO transactions (hospital, item, qty, seller, hash_id) VALUES (?,?,?,?,?)",
+               (hospital, item, qty, seller["seller_name"], tx_hash))
 
     db.commit()
+    db.close()
     return jsonify({"status": "Matched", "hash": tx_hash})
 
 @app.route("/ledger")
@@ -247,3 +239,19 @@ def ledger():
     rows = db.execute("SELECT * FROM transactions ORDER BY id DESC").fetchall()
     db.close()
     return jsonify([dict(r) for r in rows])
+
+# -------------------------------
+# DEBUG TOOLS
+# -------------------------------
+@app.route("/debug/reset")
+def reset_db():
+    db = get_db()
+    db.execute("DELETE FROM inventory")
+    db.execute("DELETE FROM transactions")
+    db.execute("DELETE FROM hospital_profiles")
+    db.commit()
+    db.close()
+    return "Database Cleared! Ready for fresh demo."
+
+if __name__ == "__main__":
+    app.run(debug=True)

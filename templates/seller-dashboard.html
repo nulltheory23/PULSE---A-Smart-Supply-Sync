@@ -1,45 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
     <title>PULSE | Seller Dashboard</title>
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='seller.css') }}" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='hospdas.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
-
 <body>
     <header class="navbar">
-        <a href="{{ url_for('home') }}" class="home-icon">
-            <i class="fas fa-house"></i>
-        </a>
-        <h1>Seller Inventory Management</h1>
+        <a href="{{ url_for('home') }}" class="home-icon"><i class="fas fa-house"></i></a>
+        <h1>Supplier Inventory</h1>
     </header>
-
-    <main class="seller-main-area" id="seller-view">
-        
+    <main class="dashboard">
         <section class="hospital-card">
-            <h2><i class="fas fa-plus-circle"></i> Update Stock</h2>
-            <form id="inventory-form" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
-                <input type="text" id="item-name" placeholder="Item Name (e.g., Oxygen)" required 
-                       style="padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white;">
-                <input type="number" id="item-qty" placeholder="Quantity" required 
-                       style="padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: white;">
+            <h2><i class="fas fa-plus-circle"></i> Add New Stock</h2>
+            <form id="add-form" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                <input type="text" id="item" placeholder="Item Name (e.g. Oxygen)" required style="padding: 10px; border-radius: 5px; background: #0f172a; color: white; border: 1px solid #334155;">
+                <input type="number" id="qty" placeholder="Quantity" required style="padding: 10px; border-radius: 5px; background: #0f172a; color: white; border: 1px solid #334155;">
                 <button type="submit" class="request-btn">Update Inventory</button>
             </form>
         </section>
 
-        <section class="hospital-card">
-            <h2><i class="fas fa-file-invoice"></i> Transaction Ledger</h2>
-            <div id="ledger-container" class="inventory">
-                <p style="text-align: center; color: #94a3b8; margin-top: 20px;">
-                    <i class="fas fa-sync fa-spin"></i> Loading transaction history...
-                </p>
+        <section class="hospital-card" style="margin-top: 20px;">
+            <h2><i class="fas fa-list"></i> Recent Global Transactions</h2>
+            <div id="ledger-box" class="inventory">
+                <p>Loading ledger...</p>
             </div>
         </section>
     </main>
-
     <script src="{{ url_for('static', filename='seller.js') }}"></script>
 </body>
 </html>
