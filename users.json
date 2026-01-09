@@ -1,0 +1,56 @@
+{
+    "buyers": [
+        {
+            "username": "govt_medical_college_nilgiris",
+            "display_name": "Govt Medical College Hospital, Nilgiris",
+            "password": "med123"
+        },
+        {
+            "username": "government_lawley_hospital",
+            "display_name": "Government Lawley Hospital",
+            "password": "law456"
+        },
+        {
+            "username": "kotagiri_government_hospital",
+            "display_name": "Kotagiri Government Hospital",
+            "password": "kota789"
+        },
+        {
+            "username": "gudalur_govt_hospital",
+            "display_name": "Gudalur Govt. Hospital",
+            "password": "guda321"
+        },
+        {
+            "username": "panthalur_medical_hospital",
+            "display_name": "Panthalur Medical Hospital, The Nilgiris",
+            "password": "pan654"
+        }
+    ],
+    "sellers": [
+        {
+            "username": "cms_hospital_ooty",
+            "display_name": "CMS Hospital, Ooty",
+            "password": "cms111"
+        },
+        {
+            "username": "nirmala_hospital_kotagiri",
+            "display_name": "Nirmala Hospital, Kotagiri",
+            "password": "nirm222"
+        },
+        {
+            "username": "coonoor_dist_hospital",
+            "display_name": "Coonoor District Hospital",
+            "password": "coon333"
+        },
+        {
+            "username": "gudalur_private_care",
+            "display_name": "Gudalur Private Care Hospital",
+            "password": "gpc444"
+        },
+        {
+            "username": "mercy_clinic_panthalur",
+            "display_name": "Mercy Clinic, Panthalur",
+            "password": "mercy555"
+        }
+    ]
+}
