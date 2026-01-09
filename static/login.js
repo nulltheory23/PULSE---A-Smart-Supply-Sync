@@ -17,15 +17,14 @@ function switchLogin(role) {
     }
 }
 
-// 2. Fixed the Login Logic for Render
+// 2. Updated Login Logic for Role-Based Redirects
 async function handleLogin(event) {
-    event.preventDefault(); // Prevents page reload
+    event.preventDefault(); 
 
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
 
     try {
-        // CHANGED: Use '/login' instead of the local IP address
         const response = await fetch("/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -39,9 +38,9 @@ async function handleLogin(event) {
         const result = await response.json();
 
         if (result.success) {
-            // CHANGED: Redirect to the Flask ROUTE, not the .html filename
-            // In your app.py, the route for the dashboard is "/dashboard"
-            window.location.href = "/dashboard";
+            // ✅ FIX: Use result.redirect from the backend!
+            // This ensures Hospitals go to /dashboard and Sellers go to /seller-dashboard
+            window.location.href = result.redirect; 
         } else {
             alert(result.message || "Invalid Credentials!");
         }
