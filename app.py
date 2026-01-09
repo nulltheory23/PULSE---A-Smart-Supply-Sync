@@ -95,6 +95,8 @@ def login():
             
             if role == "hospital":
                 session["logged_hospital"] = u.get("display_name", username)
+            else:
+                session["logged_seller"] = u.get("username", username)
             
             return jsonify({
                 "success": True, 
@@ -108,7 +110,7 @@ def login():
 def hospital_request():
     data = request.get_json()
     hospital = data.get('hospital')
-    item = data.get('item')
+    item = data.get('item').strip().capitalize()
     qty = data.get('qty')
     
     db = get_db()
@@ -187,7 +189,7 @@ def get_hospitals():
 @app.route("/api/add-inventory", methods=["POST"])
 def add_inventory():
     data = request.json
-    item = data.get('item')
+    item = data.get('item').strip().capitalize()
     qty = data.get('qty')
     seller_name = "Seller_1" # In a real app, get this from session
 

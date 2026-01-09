@@ -9,7 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const qty = parseInt(document.getElementById("item-qty").value);
 
         try {
-            // 🔹 ACTUALLY send the data to the server
             const response = await fetch("/api/add-inventory", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -21,7 +20,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (result.success) {
                 alert(`✅ Success: ${result.message}`);
                 invForm.reset();
-                // Refresh ledger in case the new stock matched a pending request
                 fetchLedger(); 
             } else {
                 alert("❌ Error updating inventory.");
@@ -46,11 +44,10 @@ function fetchLedger() {
             let html = "<ul style='list-style: none; padding: 0;'>";
             data.forEach(tx => {
                 html += `
-                    <li style="border-bottom: 1px solid #334155; padding: 15px 0;">
-                        <span style="color: #38bdf8; font-weight: bold;">${tx.hospital}</span> 
-                        <span style="color: white;">bought</span> 
-                        <strong style="color: #fbbf24;">${tx.qty}x ${tx.item}</strong><br>
-                        <small style="color: #64748b; font-family: monospace;">TX: ${tx.hash_id.substring(0, 20)}...</small>
+                    <li style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 15px 0;">
+                        <span style="color: #00fff5; font-weight: bold;">${tx.hospital}</span> requested 
+                        <strong>${tx.qty}x ${tx.item}</strong><br>
+                        <small style="color: #64748b; font-family: monospace;">HASH: ${tx.hash_id.substring(0, 24)}...</small>
                     </li>
                 `;
             });
