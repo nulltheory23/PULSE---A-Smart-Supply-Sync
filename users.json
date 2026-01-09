@@ -26,5 +26,31 @@
             "password": "pan654"
         }
     ],
-    "sellers": []
+    "sellers": [
+        {
+            "username": "cms_hospital_ooty",
+            "display_name": "CMS Hospital, Ooty",
+            "password": "cms111"
+        },
+        {
+            "username": "nirmala_hospital_kotagiri",
+            "display_name": "Nirmala Hospital, Kotagiri",
+            "password": "nirm222"
+        },
+        {
+            "username": "coonoor_dist_hospital",
+            "display_name": "Coonoor District Hospital",
+            "password": "coon333"
+        },
+        {
+            "username": "gudalur_private_care",
+            "display_name": "Gudalur Private Care Hospital",
+            "password": "gpc444"
+        },
+        {
+            "username": "mercy_clinic_panthalur",
+            "display_name": "Mercy Clinic, Panthalur",
+            "password": "mercy555"
+        }
+    ]
 }
