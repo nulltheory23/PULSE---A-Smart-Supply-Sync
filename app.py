@@ -3,11 +3,17 @@ import hashlib
 import json
 import os
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
+
+# 🔹 IMPORT hospital resource data
+from hosdata import data as hospital_data
 
 app = Flask(__name__)
 CORS(app)
+
+# 🔹 REQUIRED for session handling
+app.secret_key = "pulse_secret_key"
 
 # Use absolute paths to ensure Render finds files correctly
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -65,7 +71,7 @@ def show_login():
     return render_template("login.html")
 
 # -------------------------------
-# 3. API Routes
+# 3. API Routes (EXISTING)
 # -------------------------------
 
 @app.route("/login", methods=["POST"])
@@ -84,9 +90,13 @@ def login():
 
     for u in users:
         if u["username"] == username and u["password"] == password:
+            # 🔹 STORE logged-in hospital identity
+            if role == "hospital":
+                session["logged_hospital"] = u.get("display_name", username)
             return jsonify({"success": True, "role": role, "redirect": "/dashboard"})
 
     return jsonify({"success": False, "message": "Wrong username or password"}), 401
+
 
 @app.route("/hospital/request", methods=["POST"])
 def hospital_request():
@@ -114,6 +124,7 @@ def hospital_request():
     db.close()
     return jsonify({"status": "Pending", "message": "No immediate match found."})
 
+
 @app.route("/ledger", methods=["GET"])
 def get_ledger():
     db = get_db()
@@ -121,6 +132,40 @@ def get_ledger():
     db.close()
     return jsonify([dict(row) for row in txs])
 
-# For local testing only; Render uses the 'app' object directly
+# -------------------------------
+# 4. NEW API: Hospital Dashboard Data
+# -------------------------------
+
+@app.route("/api/hospitals", methods=["GET"])
+def get_hospitals():
+    logged_hospital = session.get("logged_hospital")
+
+    result = []
+
+    for h in hospital_data:
+        if h["Hospital Name"] != logged_hospital:
+            inventory = {
+                "Oxygen Cylinders": h["Oxygen Cylinders"],
+                "Anesthesia Machines": h["Anesthesia Machines"],
+                "Sterilizers": h["Sterilizers"],
+                "Surgical Tables": h["Surgical Tables"]
+            }
+
+            # Add blood types dynamically
+            for blood, qty in h["Blood Supply"].items():
+                inventory[f"Blood {blood}"] = f"{qty} units"
+
+            result.append({
+                "name": h["Hospital Name"],
+                "email": h["Email"],
+                "phone": h["Telephone"],
+                "inventory": inventory
+            })
+
+    return jsonify(result)
+
+# -------------------------------
+# Run App
+# -------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
