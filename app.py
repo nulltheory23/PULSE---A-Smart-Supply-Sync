@@ -90,13 +90,19 @@ def login():
 
     for u in users:
         if u["username"] == username and u["password"] == password:
-            # 🔹 STORE logged-in hospital identity
+            # Dynamic Redirect based on role
+            target_page = "/dashboard" if role == "hospital" else "/seller-dashboard"
+            
             if role == "hospital":
                 session["logged_hospital"] = u.get("display_name", username)
-            return jsonify({"success": True, "role": role, "redirect": "/dashboard"})
+            
+            return jsonify({
+                "success": True, 
+                "role": role, 
+                "redirect": target_page  # <--- THIS IS KEY
+            })
 
     return jsonify({"success": False, "message": "Wrong username or password"}), 401
-
 
 @app.route("/hospital/request", methods=["POST"])
 def hospital_request():
@@ -123,6 +129,10 @@ def hospital_request():
     
     db.close()
     return jsonify({"status": "Pending", "message": "No immediate match found."})
+
+@app.route("/seller-dashboard")
+def seller_dashboard():
+    return render_template("seller-dashboard.html")
 
 
 @app.route("/ledger", methods=["GET"])
@@ -168,6 +178,32 @@ def get_hospitals():
     except Exception as e:
         print(f"Error in /api/hospitals: {e}")
         return jsonify([]) # Return empty list so JS doesn't crash
+    
+
+# -------------------------------
+# 5. NEW API: Seller Actions
+# -------------------------------
+
+@app.route("/api/add-inventory", methods=["POST"])
+def add_inventory():
+    data = request.json
+    item = data.get('item')
+    qty = data.get('qty')
+    seller_name = "Seller_1" # In a real app, get this from session
+
+    db = get_db()
+    # Check if item exists, if so update, else insert
+    existing = db.execute("SELECT * FROM inventory WHERE item = ?", (item,)).fetchone()
+    
+    if existing:
+        db.execute("UPDATE inventory SET qty = qty + ? WHERE item = ?", (qty, item))
+    else:
+        db.execute("INSERT INTO inventory (seller_name, item, qty) VALUES (?, ?, ?)", 
+                   (seller_name, item, qty))
+    
+    db.commit()
+    db.close()
+    return jsonify({"success": True, "message": "Inventory updated!"})
 
 # -------------------------------
 # Run App
