@@ -6,285 +6,228 @@ from datetime import datetime
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 
-# 🔹 IMPORT hospital resource data (used only for network discovery, not inventory)
-from hosdata import data as hospital_data
-
 app = Flask(__name__)
 CORS(app)
-
-# 🔹 REQUIRED for session handling
 app.secret_key = "pulse_secret_key"
 
-# Absolute paths (Render-safe)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-USERS_FILE = os.path.join(BASE_DIR, "users.json")
 DATABASE = os.path.join(BASE_DIR, "pulse.db")
+USERS_FILE = os.path.join(BASE_DIR, "users.json")
 
 # -------------------------------
-# 1. Database Setup
+# DB SETUP
 # -------------------------------
-def init_db():
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS inventory (
-            id INTEGER PRIMARY KEY,
-            seller_name TEXT,
-            item TEXT,
-            qty INTEGER
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS hospital_inventory (
-            id INTEGER PRIMARY KEY,
-            hospital TEXT,
-            item TEXT,
-            qty INTEGER
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY,
-            hospital TEXT,
-            item TEXT,
-            qty INTEGER,
-            seller TEXT,
-            hash_id TEXT
-        )
-    ''')
-
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# -------------------------------
-# Utility Functions
-# -------------------------------
-def load_users():
-    if not os.path.exists(USERS_FILE):
-        default_data = {
-            "buyers": [{"username": "admin", "password": "123"}],
-            "sellers": [{"username": "seller1", "password": "123"}]
-        }
-        with open(USERS_FILE, "w") as f:
-            json.dump(default_data, f)
-        return default_data
-
-    with open(USERS_FILE, "r") as f:
-        return json.load(f)
-
 def get_db():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
-def normalize(text):
-    return text.lower().replace(",", "").replace(".", "").replace(" ", "_")
+def init_db():
+    db = get_db()
+    c = db.cursor()
+
+    c.execute("""CREATE TABLE IF NOT EXISTS inventory (
+        id INTEGER PRIMARY KEY,
+        seller_name TEXT,
+        item TEXT,
+        qty INTEGER
+    )""")
+
+    c.execute("""CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY,
+        hospital TEXT,
+        item TEXT,
+        qty INTEGER,
+        seller TEXT,
+        hash_id TEXT
+    )""")
+
+    c.execute("""CREATE TABLE IF NOT EXISTS hospital_profiles (
+        id INTEGER PRIMARY KEY,
+        hospital TEXT UNIQUE,
+        display_name TEXT,
+        inventory TEXT
+    )""")
+
+    db.commit()
+    db.close()
+
+init_db()
 
 # -------------------------------
-# 2. Page Routes
+# AUTH
 # -------------------------------
-@app.route("/")
-def home():
-    return render_template("index.html")
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w") as f:
+            json.dump({
+                "buyers": [{"username": "admin", "password": "123"}],
+                "sellers": [{"username": "seller1", "password": "123"}]
+            }, f)
 
-@app.route("/dashboard")
-def dashboard():
-    return render_template("hospital-dashboard.html")
+    with open(USERS_FILE) as f:
+        return json.load(f)
 
-@app.route("/seller-dashboard")
-def seller_dashboard():
-    return render_template("seller-dashboard.html")
-
-@app.route("/login_page")
-def show_login():
-    return render_template("login.html")
-
-# -------------------------------
-# 3. Authentication
-# -------------------------------
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
-    role = data.get("role")
-    username = data.get("username")
-    password = data.get("password")
+    users = load_users()
 
-    users_data = load_users()
-    category = "buyers" if role == "hospital" else "sellers"
+    role = data["role"]
+    username = data["username"]
+    password = data["password"]
 
-    for user in users_data.get(category, []):
-        if user["username"] == username and user["password"] == password:
-            if role == "hospital":
-                session["logged_hospital"] = username
-                return jsonify({"success": True, "redirect": "/dashboard"})
-            else:
-                session["logged_seller"] = username
-                return jsonify({"success": True, "redirect": "/seller-dashboard"})
+    group = "buyers" if role == "hospital" else "sellers"
 
-    return jsonify({"success": False, "message": "Invalid credentials"}), 401
+    for u in users[group]:
+        if u["username"] == username and u["password"] == password:
+            session[f"logged_{role}"] = username
+            return jsonify({"success": True, "redirect":
+                "/dashboard" if role == "hospital" else "/seller-dashboard"})
+
+    return jsonify({"success": False}), 401
 
 # -------------------------------
-# 4. API ROUTES
+# PAGES
 # -------------------------------
+@app.route("/")
+def home(): return render_template("index.html")
 
-# 🔹 Logged-in hospital inventory (LIVE)
-@app.route("/api/hospital/me", methods=["GET"])
-def get_my_hospital_inventory():
+@app.route("/dashboard")
+def dashboard(): return render_template("hospital-dashboard.html")
+
+@app.route("/seller-dashboard")
+def seller_dashboard(): return render_template("seller-dashboard.html")
+
+# -------------------------------
+# HOSPITAL PROFILE API
+# -------------------------------
+@app.route("/api/hospital/profile", methods=["GET", "POST"])
+def hospital_profile():
     hospital = session.get("logged_hospital")
     if not hospital:
         return jsonify({"error": "Not logged in"}), 401
 
     db = get_db()
+
+    if request.method == "GET":
+        row = db.execute(
+            "SELECT * FROM hospital_profiles WHERE hospital=?",
+            (hospital,)
+        ).fetchone()
+
+        if not row:
+            default_inventory = {"Oxygen": 10, "Masks": 50}
+            db.execute(
+                "INSERT INTO hospital_profiles VALUES (NULL, ?, ?, ?)",
+                (hospital, hospital.capitalize(), json.dumps(default_inventory))
+            )
+            db.commit()
+            return jsonify({
+                "hospital": hospital,
+                "display_name": hospital.capitalize(),
+                "inventory": default_inventory
+            })
+
+        return jsonify({
+            "hospital": row["hospital"],
+            "display_name": row["display_name"],
+            "inventory": json.loads(row["inventory"])
+        })
+
+    # UPDATE
+    data = request.json
+    db.execute(
+        "UPDATE hospital_profiles SET display_name=?, inventory=? WHERE hospital=?",
+        (data["display_name"], json.dumps(data["inventory"]), hospital)
+    )
+    db.commit()
+    return jsonify({"success": True})
+
+# -------------------------------
+# OTHER HOSPITALS (DUMMY → PERSISTENT)
+# -------------------------------
+@app.route("/api/hospitals/others")
+def other_hospitals():
+    db = get_db()
     rows = db.execute(
-        "SELECT item, qty FROM hospital_inventory WHERE hospital = ?",
-        (hospital,)
+        "SELECT display_name, inventory FROM hospital_profiles"
     ).fetchall()
     db.close()
 
-    inventory = {row["item"]: row["qty"] for row in rows}
+    return jsonify([
+        {"name": r["display_name"], "inventory": json.loads(r["inventory"])}
+        for r in rows
+    ])
 
-    return jsonify({
-        "name": hospital,
-        "inventory": inventory
-    })
-
-# 🔹 Seller inventory (LIVE)
-@app.route("/api/sellers", methods=["GET"])
-def get_sellers():
+# -------------------------------
+# SELLERS
+# -------------------------------
+@app.route("/api/sellers")
+def sellers():
     db = get_db()
     rows = db.execute("SELECT * FROM inventory").fetchall()
     db.close()
-    return jsonify([dict(row) for row in rows])
+    return jsonify([dict(r) for r in rows])
 
-# 🔹 Network hospital listing (NOT inventory)
-@app.route("/api/hospitals", methods=["GET"])
-def get_hospitals():
-    result = []
-    for h in hospital_data:
-        inventory = {
-            "Oxygen": h.get("Oxygen Cylinders", 0),
-            "Anesthesia": h.get("Anesthesia Machines", 0),
-            "Sterilizers": h.get("Sterilizers", 0)
-        }
-        result.append({
-            "name": h["Hospital Name"],
-            "inventory": inventory
-        })
-    return jsonify(result)
+@app.route("/api/add-inventory", methods=["POST"])
+def add_inventory():
+    seller = session.get("logged_seller")
+    data = request.json
+
+    db = get_db()
+    existing = db.execute(
+        "SELECT * FROM inventory WHERE seller_name=? AND item=?",
+        (seller, data["item"])
+    ).fetchone()
+
+    if existing:
+        db.execute(
+            "UPDATE inventory SET qty=qty+? WHERE id=?",
+            (data["qty"], existing["id"])
+        )
+    else:
+        db.execute(
+            "INSERT INTO inventory VALUES (NULL,?,?,?)",
+            (seller, data["item"], data["qty"])
+        )
+
+    db.commit()
+    return jsonify({"success": True, "message": "Inventory updated"})
 
 # -------------------------------
-# 5. ORDER TRANSACTION (CORE LOGIC)
+# ORDERS
 # -------------------------------
 @app.route("/hospital/request", methods=["POST"])
 def hospital_request():
-    data = request.get_json()
     hospital = session.get("logged_hospital")
-    item = data.get("item", "").strip().capitalize()
-    qty = int(data.get("qty", 0))
-
-    if not hospital:
-        return jsonify({"status": "Failed", "message": "Not logged in"}), 401
+    data = request.json
+    item, qty = data["item"], int(data["qty"])
 
     db = get_db()
-
     seller = db.execute(
-        "SELECT * FROM inventory WHERE item = ? AND qty >= ? LIMIT 1",
+        "SELECT * FROM inventory WHERE item=? AND qty>=?",
         (item, qty)
     ).fetchone()
 
     if not seller:
-        db.close()
-        return jsonify({"status": "Pending", "message": "Insufficient stock"})
+        return jsonify({"status": "Failed"})
 
-    tx_hash = hashlib.sha256(
-        f"{hospital}{item}{datetime.now()}".encode()
-    ).hexdigest()
+    db.execute("UPDATE inventory SET qty=qty-? WHERE id=?",
+               (qty, seller["id"]))
 
-    # 🔻 Reduce seller stock
+    tx_hash = hashlib.sha256(f"{hospital}{item}{datetime.now()}".encode()).hexdigest()
     db.execute(
-        "UPDATE inventory SET qty = qty - ? WHERE id = ?",
-        (qty, seller["id"])
-    )
-
-    # 🔺 Increase hospital stock
-    existing = db.execute(
-        "SELECT * FROM hospital_inventory WHERE hospital = ? AND item = ?",
-        (hospital, item)
-    ).fetchone()
-
-    if existing:
-        db.execute(
-            "UPDATE hospital_inventory SET qty = qty + ? WHERE hospital = ? AND item = ?",
-            (qty, hospital, item)
-        )
-    else:
-        db.execute(
-            "INSERT INTO hospital_inventory (hospital, item, qty) VALUES (?, ?, ?)",
-            (hospital, item, qty)
-        )
-
-    # 🧾 Record transaction
-    db.execute(
-        "INSERT INTO transactions (hospital, item, qty, seller, hash_id) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO transactions VALUES (NULL,?,?,?,?,?)",
         (hospital, item, qty, seller["seller_name"], tx_hash)
     )
 
     db.commit()
-    db.close()
-
     return jsonify({"status": "Matched", "hash": tx_hash})
 
-# -------------------------------
-# 6. SELLER ADD INVENTORY
-# -------------------------------
-@app.route("/api/add-inventory", methods=["POST"])
-def add_inventory():
-    data = request.json
-    item = data.get("item", "").strip().capitalize()
-    qty = int(data.get("qty", 0))
-    seller = session.get("logged_seller", "seller1")
-
-    db = get_db()
-    existing = db.execute(
-        "SELECT * FROM inventory WHERE item = ? AND seller_name = ?",
-        (item, seller)
-    ).fetchone()
-
-    if existing:
-        db.execute(
-            "UPDATE inventory SET qty = qty + ? WHERE item = ? AND seller_name = ?",
-            (qty, item, seller)
-        )
-    else:
-        db.execute(
-            "INSERT INTO inventory (seller_name, item, qty) VALUES (?, ?, ?)",
-            (seller, item, qty)
-        )
-
-    db.commit()
-    db.close()
-    return jsonify({"success": True})
-
-# -------------------------------
-# 7. TRANSACTION LEDGER
-# -------------------------------
 @app.route("/ledger")
-def get_ledger():
+def ledger():
     db = get_db()
-    rows = db.execute(
-        "SELECT * FROM transactions ORDER BY id DESC"
-    ).fetchall()
+    rows = db.execute("SELECT * FROM transactions ORDER BY id DESC").fetchall()
     db.close()
-    return jsonify([dict(row) for row in rows])
-
-# -------------------------------
-# Run App
-# -------------------------------
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    return jsonify([dict(r) for r in rows])
